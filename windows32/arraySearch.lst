@@ -1,0 +1,246 @@
+Microsoft (R) Macro Assembler Version 14.00.24210.0	    11/22/16 22:45:47
+arraySearch.asm						     Page 1 - 1
+
+
+				; Program Name: Assignment 3 - Array Load and Search
+				; Programmer Name: Jonathan Cardasis
+				; Description: Takes input for a collection of positive integers and stored them into an array of 
+				;              doublewords (maximum of 10 elements). Any number n<=0 can be used to stop reading input
+				;              values for the array. The user enters a value to search for in the array, and can continue
+				;              to search for more values, to stop searching and end the program "N" or "n" is entered.
+				;              
+				; Date Created: 11/22/16
+
+				.586
+				.MODEL FLAT
+
+				INCLUDE io-asm.h                              ; header file for input/output
+			      C ; IO.H -- header file for I/O macros (listing suppressed)
+			      C .NOLIST      ; turn off listing
+			      C .LIST        ; begin listing
+			      C 
+
+				.STACK 4096
+
+ 00000000			.DATA
+ 00000000  00000028 [		string          BYTE  40 DUP (?)              ; used for user input
+	    00
+	   ]
+ 00000028  0000000A [		numbers         DWORD 10 dup (?)              ; array of ten possible elements 
+	    00000000
+	   ]
+ 00000050 00000000		numbersCount    DWORD 0
+ 00000054 00000000		searchValue     DWORD ?
+ 00000058 00000000		count           DWORD ?
+ 0000005C  0000000B [		outputString    BYTE  11 DUP (?), 0           ; used to print out
+	    00
+	   ] 00
+
+				; Input Prompts
+ 00000068 45 6E 74 65 72	inputPrompt          BYTE "Enter a value to add to the array: ", 0
+	   20 61 20 76 61
+	   6C 75 65 20 74
+	   6F 20 61 64 64
+	   20 74 6F 20 74
+	   68 65 20 61 72
+	   72 61 79 3A 20
+	   00
+ 0000008C 45 6E 74 65 72	searchPrompt         BYTE "Enter a value to search for:", 0
+	   20 61 20 76 61
+	   6C 75 65 20 74
+	   6F 20 73 65 61
+	   72 63 68 20 66
+	   6F 72 3A 00
+ 000000A9 57 6F 75 6C 64	continuePrompt       BYTE "Would you like to search for more numbers?", 0
+	   20 79 6F 75 20
+	   6C 69 6B 65 20
+	   74 6F 20 73 65
+	   61 72 63 68 20
+	   66 6F 72 20 6D
+	   6F 72 65 20 6E
+	   75 6D 62 65 72
+	   73 3F 00
+
+				; Output Prompts
+ 000000D4 69 6E 70 75 74	invalidInputPrompt   BYTE "input is invalid", 0
+	   20 69 73 20 69
+	   6E 76 61 6C 69
+	   64 00
+ 000000E5 61 72 72 61 79	emptyOutputPrompt    BYTE "array is empty", 0
+	   20 69 73 20 65
+	   6D 70 74 79 00
+ 000000F4 20 6E 6F 74 20	valueNotFoundPrompt  BYTE " not in the array", 0
+	   69 6E 20 74 68
+	   65 20 61 72 72
+	   61 79 00
+ 00000106 20 69 73 20 65	valueFoundPrompt     BYTE " is element ", 0
+	   6C 65 6D 65 6E
+	   74 20 00
+
+
+
+ 00000000			.CODE
+ 00000000			_MainProc PROC
+ 00000000  8D 35 00000028 R			lea esi, numbers                      ; load array address
+ 00000006  B9 0000000A				mov ecx, 10                          ; max number of elements we can add
+
+ 0000000B			arrayInput:
+				        input   inputPrompt, string, 40       ; read input
+				        atod    string                        ; convert to integer
+						
+ 00000038  83 F8 00				cmp eax, 0				              ; loop while input > 0
+ 0000003B  7E 0D				jle endArrayInput       
+						;cmp numbersCount, 10                 ; AND loop while numbersCount < 10
+						;jge endArrayInput
+
+ 0000003D  FF 05 00000050 R			inc numbersCount                      ; add 1 to array count
+ 00000043  89 06				mov [esi], eax                        ; add element to array
+ 00000045  83 C6 04				add esi, 4                            ; point esi to next element
+
+ 00000048  E2 C1				loop arrayInput                       ; repeat
+
+ 0000004A			endArrayInput:
+						; Check for zero elements
+ 0000004A  83 3D 00000050 R			cmp numbersCount, 0
+	   00
+ 00000051  75 1E				jne search
+						output emptyOutputPrompt, emptyOutputPrompt
+ 0000006C  E9 00000147				jmp end_program
+
+ 00000071			search:
+						input searchPrompt, string, 40
+						atod  string
+ 0000009E  A3 00000054 R			mov searchValue, eax
+
+ 000000A3  83 3D 00000054 R			cmp searchValue, 0
+	   00
+ 000000AA  7F 37				jg validInput
+						dtoa outputString, searchValue		  ; Do for invalid input
+						output invalidInputPrompt, outputString
+ 000000E1  EB 8E				jmp search
+
+ 000000E3			 validInput:
+ 000000E3  8D 35 00000028 R			lea esi, numbers                      ; load array address
+ 000000E9  C7 05 00000058 R			mov count, 0                          ; start count at zero
+	   00000000
+
+ 000000F3			 forever:
+ 000000F3  A1 00000050 R			mov eax, numbersCount
+ 000000F8  39 05 00000058 R			cmp count, eax
+ 000000FE  7E 37				jle canSearch
+						dtoa outputString, searchValue
+						output valueNotFoundPrompt, outputString    ; do if we count value is outside array bounds
+ 00000135  EB 4E				jmp endSearch
+
+ 00000137			 canSearch:
+						;if searchvalue == current array element
+ 00000137  A1 00000054 R			mov eax, searchValue
+ 0000013C  3B 06				cmp eax, [esi]
+ 0000013E  75 37				jne notEqual
+
+						; They are equal:
+						dtoa outputString, count
+						output valueFoundPrompt, outputString      ; will print 'is element ' + index it was found at
+ 00000175  EB 0E				jmp endSearch
+
+ 00000177			 notEqual:
+ 00000177  FF 05 00000058 R	        inc count
+ 0000017D  83 C6 04				add esi, 4                                 ; point esi to next element
+ 00000180  E9 FFFFFF6E				jmp forever
+
+ 00000185			endSearch:
+						input continuePrompt, string, 40
+ 000001A3  8A 15 00000000 R			mov dl, byte PTR [string]                  ; get first character of string and store in low byte
+
+ 000001A9  80 FA 4E				cmp dl, 'N'                                ; compare input for "N" and "n" to stop program
+ 000001AC  74 0A				je end_program
+ 000001AE  80 FA 6E				cmp dl, 'n'
+ 000001B1  74 05				je end_program
+ 000001B3  E9 FFFFFEB9				jmp search                                 ; do search loop again if continue input was not "N"/"n"
+
+ 000001B8			end_program:
+ 000001B8  B8 00000000		        mov     eax, 0                   ; exit with return code 0
+ 000001BD  C3			        ret
+
+ 000001BE			_MainProc ENDP
+				END                                      ; end of source code
+
+Microsoft (R) Macro Assembler Version 14.00.24210.0	    11/22/16 22:45:47
+arraySearch.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+atod . . . . . . . . . . . . . .	Proc
+atow . . . . . . . . . . . . . .	Proc
+dtoa . . . . . . . . . . . . . .	Proc
+input  . . . . . . . . . . . . .	Proc
+output . . . . . . . . . . . . .	Proc
+wtoa . . . . . . . . . . . . . .	Proc
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000113 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000001BE Para	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 000001BE Public
+  arrayInput . . . . . . . . . .	L Near	 0000000B _TEXT	
+  endArrayInput  . . . . . . . .	L Near	 0000004A _TEXT	
+  search . . . . . . . . . . . .	L Near	 00000071 _TEXT	
+  validInput . . . . . . . . . .	L Near	 000000E3 _TEXT	
+  forever  . . . . . . . . . . .	L Near	 000000F3 _TEXT	
+  canSearch  . . . . . . . . . .	L Near	 00000137 _TEXT	
+  notEqual . . . . . . . . . . .	L Near	 00000177 _TEXT	
+  endSearch  . . . . . . . . . .	L Near	 00000185 _TEXT	
+  end_program  . . . . . . . . .	L Near	 000001B8 _TEXT	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+_getInput  . . . . . . . . . . .	L Near	 00000000 FLAT	External
+_showOutput  . . . . . . . . . .	L Near	 00000000 FLAT	External
+atodproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+atowproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+continuePrompt . . . . . . . . .	Byte	 000000A9 _DATA	
+count  . . . . . . . . . . . . .	DWord	 00000058 _DATA	
+dtoaproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+emptyOutputPrompt  . . . . . . .	Byte	 000000E5 _DATA	
+inputPrompt  . . . . . . . . . .	Byte	 00000068 _DATA	
+invalidInputPrompt . . . . . . .	Byte	 000000D4 _DATA	
+numbersCount . . . . . . . . . .	DWord	 00000050 _DATA	
+numbers  . . . . . . . . . . . .	DWord	 00000028 _DATA	
+outputString . . . . . . . . . .	Byte	 0000005C _DATA	
+searchPrompt . . . . . . . . . .	Byte	 0000008C _DATA	
+searchValue  . . . . . . . . . .	DWord	 00000054 _DATA	
+string . . . . . . . . . . . . .	Byte	 00000000 _DATA	
+valueFoundPrompt . . . . . . . .	Byte	 00000106 _DATA	
+valueNotFoundPrompt  . . . . . .	Byte	 000000F4 _DATA	
+wtoaproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+
+	   0 Warnings
+	   0 Errors
